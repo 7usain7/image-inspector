@@ -14,6 +14,7 @@ import sys
 
 from modules.metadata import extract_metadata
 from modules.output_manager import save_output
+from modules.pgp_extractor import pgp_extractor
 
 WELCOME_MESSAGE = """
 Welcome to Image Inspector
@@ -59,7 +60,9 @@ def main():
             results.append(res)
 
     if args.steganography:
-        results.append("[!] Steganography analysis module is under development.")
+        res = pgp_extractor(args.image)
+        if res:
+            results.append(res)
 
     if results:
         formatted_data = "\n\n".join(results)
