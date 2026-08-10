@@ -2,59 +2,69 @@
 """
 Image Inspector CLI Tool
 ========================
-A multi-functional image analysis tool.
+A multi-functional passive reconnaissance and image analysis tool.
 
 Usage:
     image-inspector -m "metadata" [-o output_file] <image_path>
     image-inspector -s "steganography" [-o output_file] <image_path>
 """
 
-import sys
 import argparse
+import sys
+
+from modules.metadata import extract_metadata
+from modules.output_manager import save_output
 
 WELCOME_MESSAGE = """
 Welcome to Image Inspector
 """
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog="image-inspector",
         description="Welcome to Image Inspector\n\nA multi-functional passive reconnaissance tool.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False
+        add_help=True,
     )
-    
-    parser.add_argument(
-        "-h", "--help",
-        action="help",
-        help="Show this help message and exit"
-    )
-    parser.add_argument(
-        "-m", "--metadata",
-        action="store_true",
-        help="Extract metadata from the image (e.g., geolocation, device info)"
-    )
-    parser.add_argument(
-        "-s", "--steganography",
-        action="store_true",
-        help="Detect and extract hidden data from the image using steganography techniques"
-    )
-    parser.add_argument(
-        "-o", "--output",
-        metavar='"FileName"',
-        type=str,
-        help="Specify the file name to save output"
-    )
-    parser.add_argument(
-        "image",
-        nargs="?",
-        help="Path to the image file to inspect"
-    )
+
+    parser.add_argument("-m", "--metadata", action="store_true", help="Extract metadata from the image (e.g., geolocation, device info)")
+    parser.add_argument("-s", "--steganography", action="store_true", help="Detect and extract hidden data using steganography techniques")
+    parser.add_argument("-o", "--output", metavar='"FileName"', help="Specify the file name to save output")
+    parser.add_argument("image", nargs="?", help="Path to the image file to inspect")
+
+    if len(sys.argv) == 1:
+        print(WELCOME_MESSAGE)
+        parser.print_help()
+        sys.exit(1)
 
     args = parser.parse_args()
 
+    if not args.image:
+        print("Error: Please provide an image path.")
+        parser.print_help()
+        sys.exit(1)
+
+    if not (args.metadata or args.steganography):
+        print("Error: Please specify at least one option (-m or -s).")
+        parser.print_help()
+        sys.exit(1)
+
     print(WELCOME_MESSAGE)
-    
+
+    results = []
+
+    if args.metadata:
+        res = extract_metadata(args.image)
+        if res:
+            results.append(res)
+
+    if args.steganography:
+        results.append("[!] Steganography analysis module is under development.")
+
+    if results:
+        formatted_data = "\n\n".join(results)
+        save_output(formatted_data, args.output)
+
 
 if __name__ == "__main__":
     main()
