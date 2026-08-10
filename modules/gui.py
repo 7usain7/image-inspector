@@ -10,12 +10,12 @@ import sys
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 from PIL import Image, ImageTk
 
 from modules.metadata import extract_metadata_dict
-from modules.pgp_extractor import extract_pgp_blocks, format_pgp_report, pgp_extractor
+from modules.key_extractor import extract_keys, format_key_report, key_extractor
 
 
 # Theme Color Palette (Modern Dark Theme)
@@ -43,8 +43,8 @@ class ImageInspectorGUI:
         self.current_image_path: Optional[str] = None
         self.current_thumbnail: Optional[ImageTk.PhotoImage] = None
         self.extracted_metadata: Dict[str, Any] = {}
-        self.extracted_pgp_report: str = ""
-        self.extracted_pgp_raw: str = ""
+        self.extracted_key_report: str = ""
+        self.extracted_keys_raw: str = ""
         self.google_maps_url: Optional[str] = None
         self.osm_url: Optional[str] = None
 
@@ -235,9 +235,9 @@ class ImageInspectorGUI:
         self.notebook.add(self.tab_metadata, text=" 📊 Metadata (EXIF & GPS) ")
         self._build_metadata_tab()
 
-        # TAB 2: PGP Steganography
+        # TAB 2: Key & Steganography Extractor
         self.tab_stego = tk.Frame(self.notebook, bg=BG_CARD, padx=15, pady=15)
-        self.notebook.add(self.tab_stego, text=" 🔐 PGP Steganography ")
+        self.notebook.add(self.tab_stego, text=" 🔐 Keys (PGP / SSH) ")
         self._build_stego_tab()
 
         # TAB 3: Complete Raw Report
@@ -253,7 +253,6 @@ class ImageInspectorGUI:
         self.lbl_status.pack(side=tk.LEFT, pady=3)
 
     def _build_metadata_tab(self):
-        # Scrollable Canvas container for metadata cards
         canvas = tk.Canvas(self.tab_metadata, bg=BG_CARD, highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.tab_metadata, orient=tk.VERTICAL, command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg=BG_CARD)
@@ -355,20 +354,20 @@ class ImageInspectorGUI:
 
         self.lbl_stego_status = tk.Label(
             top_bar,
-            text="Detected: 0 PGP Armor Blocks",
+            text="Detected: 0 Cryptographic Keys (PGP / SSH)",
             bg=BG_CARD,
             fg=ACCENT_BLUE,
             font=("Helvetica", 12, "bold"),
         )
         self.lbl_stego_status.pack(side=tk.LEFT)
 
-        btn_copy_pgp = ttk.Button(top_bar, text="📋 Copy PGP Content", style="Action.TButton", command=self.copy_pgp_content)
-        btn_copy_pgp.pack(side=tk.RIGHT, padx=(6, 0))
+        btn_copy_keys = ttk.Button(top_bar, text="📋 Copy Key Content", style="Action.TButton", command=self.copy_key_content)
+        btn_copy_keys.pack(side=tk.RIGHT, padx=(6, 0))
 
-        btn_save_pgp = ttk.Button(top_bar, text="💾 Save Key (.asc)", style="Action.TButton", command=self.save_pgp_key)
-        btn_save_pgp.pack(side=tk.RIGHT)
+        btn_save_key = ttk.Button(top_bar, text="💾 Save Key to File", style="Action.TButton", command=self.save_key_file)
+        btn_save_key.pack(side=tk.RIGHT)
 
-        self.txt_pgp = tk.Text(
+        self.txt_keys = tk.Text(
             self.tab_stego,
             bg=BG_CARD_LIGHT,
             fg=TEXT_MAIN,
@@ -380,7 +379,7 @@ class ImageInspectorGUI:
             highlightbackground=BORDER_COLOR,
             highlightthickness=1,
         )
-        self.txt_pgp.pack(fill=tk.BOTH, expand=True)
+        self.txt_keys.pack(fill=tk.BOTH, expand=True)
 
     def _build_report_tab(self):
         top_bar = tk.Frame(self.tab_report, bg=BG_CARD)
@@ -448,17 +447,17 @@ class ImageInspectorGUI:
         self.extracted_metadata = extract_metadata_dict(image_path)
         self._populate_metadata_tab(self.extracted_metadata)
 
-        # 3. Extract PGP Steganography using module function
-        pgp_blocks = extract_pgp_blocks(image_path)
-        self.extracted_pgp_report = format_pgp_report(pgp_blocks)
-        self._populate_stego_tab(pgp_blocks)
+        # 3. Extract Cryptographic Keys (PGP / SSH) using module function
+        found_keys = extract_keys(image_path)
+        self.extracted_key_report = format_key_report(found_keys)
+        self._populate_stego_tab(found_keys)
 
         # 4. Populate Full Report Tab
         combined_report = []
         if "report" in self.extracted_metadata:
             combined_report.append(self.extracted_metadata["report"])
-        if self.extracted_pgp_report:
-            combined_report.append(self.extracted_pgp_report)
+        if self.extracted_key_report:
+            combined_report.append(self.extracted_key_report)
 
         full_text = "\n\n".join(combined_report)
         self.txt_report.delete("1.0", tk.END)
@@ -526,22 +525,23 @@ class ImageInspectorGUI:
             self.btn_gmaps.config(state=tk.DISABLED)
             self.btn_osm.config(state=tk.DISABLED)
 
-    def _populate_stego_tab(self, pgp_blocks: list):
-        self.txt_pgp.delete("1.0", tk.END)
-        if pgp_blocks:
-            self.extracted_pgp_raw = "\n\n".join(content for _, content in pgp_blocks)
+    def _populate_stego_tab(self, found_keys: List[Tuple[str, str, str]]):
+        self.txt_keys.delete("1.0", tk.END)
+        if found_keys:
+            self.extracted_keys_raw = "\n\n".join(content for _, _, content in found_keys)
+            types_summary = ", ".join(set(category for category, _, _ in found_keys))
             self.lbl_stego_status.config(
-                text=f"✅ Detected {len(pgp_blocks)} PGP Armor Block(s)",
+                text=f"✅ Detected {len(found_keys)} Key(s) ({types_summary})",
                 fg=ACCENT_GREEN,
             )
-            self.txt_pgp.insert(tk.END, self.extracted_pgp_raw)
+            self.txt_keys.insert(tk.END, self.extracted_keys_raw)
         else:
-            self.extracted_pgp_raw = ""
+            self.extracted_keys_raw = ""
             self.lbl_stego_status.config(
-                text="❌ No PGP Armor Blocks Detected",
+                text="❌ No Cryptographic Keys Detected",
                 fg=TEXT_MUTED,
             )
-            self.txt_pgp.insert(tk.END, "[-] No PGP key blocks or messages detected in image.")
+            self.txt_keys.insert(tk.END, "[-] No PGP, SSH, or PEM cryptographic keys detected in image.")
 
     def open_google_maps(self):
         if self.google_maps_url:
@@ -551,29 +551,29 @@ class ImageInspectorGUI:
         if self.osm_url:
             webbrowser.open(self.osm_url)
 
-    def copy_pgp_content(self):
-        if self.extracted_pgp_raw:
+    def copy_key_content(self):
+        if self.extracted_keys_raw:
             self.root.clipboard_clear()
-            self.root.clipboard_append(self.extracted_pgp_raw)
-            messagebox.showinfo("Copied", "Extracted PGP content copied to clipboard!")
+            self.root.clipboard_append(self.extracted_keys_raw)
+            messagebox.showinfo("Copied", "Extracted cryptographic key content copied to clipboard!")
         else:
-            messagebox.showinfo("Nothing to Copy", "No PGP blocks were detected in this image.")
+            messagebox.showinfo("Nothing to Copy", "No keys were detected in this image.")
 
-    def save_pgp_key(self):
-        if not self.extracted_pgp_raw:
-            messagebox.showinfo("Nothing to Save", "No PGP content to save.")
+    def save_key_file(self):
+        if not self.extracted_keys_raw:
+            messagebox.showinfo("Nothing to Save", "No cryptographic key content to save.")
             return
 
         save_path = filedialog.asksaveasfilename(
-            defaultextension=".asc",
-            filetypes=[("PGP Armor File", "*.asc"), ("Text File", "*.txt"), ("All Files", "*.*")],
-            title="Save Extracted PGP Key",
+            defaultextension=".txt",
+            filetypes=[("Text File", "*.txt"), ("PGP Armor File", "*.asc"), ("SSH Key", "*.pub *.key"), ("All Files", "*.*")],
+            title="Save Extracted Cryptographic Key",
         )
         if save_path:
             try:
                 with open(save_path, "w", encoding="utf-8") as f:
-                    f.write(self.extracted_pgp_raw + "\n")
-                messagebox.showinfo("Saved", f"PGP Key saved to:\n{save_path}")
+                    f.write(self.extracted_keys_raw + "\n")
+                messagebox.showinfo("Saved", f"Key content saved to:\n{save_path}")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not save file: {e}")
 

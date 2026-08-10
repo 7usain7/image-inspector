@@ -15,7 +15,7 @@ import sys
 
 from modules.metadata import extract_metadata
 from modules.output_manager import save_output
-from modules.pgp_extractor import pgp_extractor
+from modules.key_extractor import key_extractor
 
 WELCOME_MESSAGE = """
 Welcome to Image Inspector
@@ -30,7 +30,7 @@ def main():
     )
 
     parser.add_argument("-m", "--metadata", action="store_true", help="Extract metadata from the image (e.g., geolocation, device info)")
-    parser.add_argument("-s", "--steganography", action="store_true", help="Detect and extract hidden data using steganography techniques")
+    parser.add_argument("-s", "--steganography", action="store_true", help="Detect and extract hidden cryptographic keys (PGP, SSH, PEM)")
     parser.add_argument("-g", "--gui", action="store_true", help="Launch the graphical user interface (GUI)")
     parser.add_argument("-o", "--output", metavar='"FileName"', help="Specify the file name to save output")
     parser.add_argument("image", nargs="?", help="Path to the image file to inspect")
@@ -67,7 +67,7 @@ def main():
             results.append(res)
 
     if args.steganography:
-        res = pgp_extractor(args.image)
+        res = key_extractor(args.image)
         if res:
             results.append(res)
 
