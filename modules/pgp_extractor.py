@@ -10,6 +10,32 @@ from typing import List, Tuple
 from modules.bytes_to_ascii import bytes_to_ascii, read_image_bytes
 
 
+def extract_pgp_blocks(image_path: str) -> List[Tuple[str, str]]:
+    """
+    Extracts PGP armor blocks from an image file.
+    
+    :param image_path: Path to the image file.
+    :return: List of tuples containing (block_type, block_content).
+    """
+    if not isinstance(image_path, str) or not os.path.isfile(image_path):
+        return []
+
+    file_bytes = read_image_bytes(image_path)
+    if not file_bytes:
+        return []
+
+    file_ascii = bytes_to_ascii(file_bytes)
+    if not file_ascii:
+        return []
+
+    # Match paired BEGIN and END PGP armor blocks using backreferences
+    pattern = r"-----BEGIN PGP (?P<type>[^-]+)-----[\s\S]*?-----END PGP (?P=type)-----"
+    return [
+        (m.group("type").strip(), m.group(0).strip())
+        for m in re.finditer(pattern, file_ascii)
+    ]
+
+
 def format_pgp_report(blocks: List[Tuple[str, str]]) -> str:
     """
     Formats the list of extracted (block_type, block_content) tuples into a clean report.
@@ -51,19 +77,5 @@ def pgp_extractor(image_path: str) -> str:
     if not isinstance(image_path, str) or not os.path.isfile(image_path):
         return f"[-] Error: Image file '{image_path}' not found."
 
-    file_bytes = read_image_bytes(image_path)
-    if not file_bytes:
-        return format_pgp_report([])
-
-    file_ascii = bytes_to_ascii(file_bytes)
-    if not file_ascii:
-        return format_pgp_report([])
-
-    # Single regex pass: extract (type, full_block) tuples
-    pattern = r"-----BEGIN PGP (?P<type>[^-]+)-----[\s\S]*?-----END PGP (?P=type)-----"
-    blocks: List[Tuple[str, str]] = [
-        (m.group("type").strip(), m.group(0).strip())
-        for m in re.finditer(pattern, file_ascii)
-    ]
-
+    blocks = extract_pgp_blocks(image_path)
     return format_pgp_report(blocks)

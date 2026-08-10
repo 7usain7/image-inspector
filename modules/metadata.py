@@ -174,13 +174,12 @@ def _format_report(
     return "\n".join(lines)
 
 
-def extract_metadata(image_path: str) -> Optional[str]:
+def extract_metadata_dict(image_path: str) -> Dict[str, Any]:
     """
-    Main metadata extraction function.
-    Reads an image file and returns the formatted metadata report string.
+    Extracts metadata from an image file and returns a structured dictionary.
     """
     if not os.path.isfile(image_path):
-        return f"[-] Error: Image file '{image_path}' not found."
+        return {"error": f"Image file '{image_path}' not found."}
 
     try:
         with Image.open(image_path) as img:
@@ -189,6 +188,8 @@ def extract_metadata(image_path: str) -> Optional[str]:
                 "file_size": f"{os.path.getsize(image_path):,} bytes",
                 "format": img.format or "Unknown",
                 "dimensions": f"{img.width} x {img.height} px",
+                "width": img.width,
+                "height": img.height,
             }
 
             named_tags, gps_ifd = _extract_raw_exif(img)
@@ -196,7 +197,24 @@ def extract_metadata(image_path: str) -> Optional[str]:
             date_time = _parse_date_time(named_tags, geo)
             device_info = _parse_device_info(named_tags)
 
-            return _format_report(file_info, date_time, device_info, geo)
+            return {
+                "file_info": file_info,
+                "date_time": date_time,
+                "device_info": device_info,
+                "geolocation": geo,
+                "report": _format_report(file_info, date_time, device_info, geo),
+            }
 
     except Exception as e:
-        return f"[-] Error extracting metadata from '{image_path}': {e}"
+        return {"error": f"Error extracting metadata from '{image_path}': {e}"}
+
+
+def extract_metadata(image_path: str) -> Optional[str]:
+    """
+    Main metadata extraction function for CLI and text outputs.
+    Reads an image file and returns the formatted metadata report string.
+    """
+    res = extract_metadata_dict(image_path)
+    if "error" in res:
+        return f"[-] {res['error']}"
+    return res.get("report")

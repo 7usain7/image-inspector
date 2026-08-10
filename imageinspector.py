@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Image Inspector CLI Tool
-========================
+Image Inspector CLI & GUI Tool
+==============================
 A multi-functional passive reconnaissance and image analysis tool.
 
 Usage:
     image-inspector -m "metadata" [-o output_file] <image_path>
     image-inspector -s "steganography" [-o output_file] <image_path>
+    image-inspector -g (launch GUI interface)
 """
 
 import argparse
@@ -30,6 +31,7 @@ def main():
 
     parser.add_argument("-m", "--metadata", action="store_true", help="Extract metadata from the image (e.g., geolocation, device info)")
     parser.add_argument("-s", "--steganography", action="store_true", help="Detect and extract hidden data using steganography techniques")
+    parser.add_argument("-g", "--gui", action="store_true", help="Launch the graphical user interface (GUI)")
     parser.add_argument("-o", "--output", metavar='"FileName"', help="Specify the file name to save output")
     parser.add_argument("image", nargs="?", help="Path to the image file to inspect")
 
@@ -40,13 +42,18 @@ def main():
 
     args = parser.parse_args()
 
+    if args.gui:
+        from modules.gui import launch_gui
+        launch_gui()
+        sys.exit(0)
+
     if not args.image:
-        print("Error: Please provide an image path.")
+        print("Error: Please provide an image path or run with -g to launch GUI.")
         parser.print_help()
         sys.exit(1)
 
     if not (args.metadata or args.steganography):
-        print("Error: Please specify at least one option (-m or -s).")
+        print("Error: Please specify at least one option (-m, -s, or -g).")
         parser.print_help()
         sys.exit(1)
 
